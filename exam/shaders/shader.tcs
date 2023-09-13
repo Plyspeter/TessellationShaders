@@ -1,0 +1,58 @@
+#version 410 core
+// Define the amount of verticies in a patch
+layout (vertices = 3) out;
+
+// User defined variables
+uniform float levelInner;
+uniform float levelOuter0;
+uniform float levelOuter1;
+uniform float levelOuter2;
+uniform bool LOD;
+uniform vec3 camPos;
+
+// Arrays containing the position, color and normals of control points in patch.
+in vec3 pos_TCS[];
+in vec4 color_TCS[];
+in vec3 normal_TCS[];
+
+// Output the positions, color and normal f control points in patch.
+out vec3 pos_TES[];
+out vec4 color_TES[];
+out vec3 normal_TES[];
+
+void main()
+{
+    // If Level of Detail is used, the levels are dynamicly choosen
+    if (LOD)
+    {
+        // Calculate the distance from the camera to the three control points
+        float dist0 = distance(camPos, pos_TCS[0]);
+        float dist1 = distance(camPos, pos_TCS[1]);
+        float dist2 = distance(camPos, pos_TCS[2]);
+
+        // Calculate the average distance to each edge
+        float distE0 = (dist1 + dist2) / 2.0f;
+        float distE1 = (dist2 + dist0) / 2.0f;
+        float distE2 = (dist0 + dist1) / 2.0f;
+
+        // Calculate each of the tesselation levels based on distance
+        gl_TessLevelOuter[0] = max(10.0f - distE2, 1.0f);
+        gl_TessLevelOuter[1] = max(10.0f - distE0, 1.0f);
+        gl_TessLevelOuter[2] = max(10.0f - distE1, 1.0f);
+
+        // Have the inner tesselation be equal to the maximum outer tesselation value
+        gl_TessLevelInner[0] = max(gl_TessLevelOuter[0], max(gl_TessLevelOuter[1], gl_TessLevelOuter[2]));
+    }
+    else // If LOD is not used then user defined fixed levels
+    {
+        gl_TessLevelInner[0] = levelInner;
+        gl_TessLevelOuter[0] = levelOuter2;
+        gl_TessLevelOuter[1] = levelOuter0;
+        gl_TessLevelOuter[2] = levelOuter1;
+    }
+
+    // Just copy over the position, color and normals. (No modifications)
+    gl_out[gl_InvocationID].gl_Position	= gl_in[gl_InvocationID].gl_Position;
+    color_TES[gl_InvocationID] = color_TCS[gl_InvocationID];
+    normal_TES[gl_InvocationID] = normal_TCS[gl_InvocationID];
+}
